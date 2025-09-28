@@ -1,302 +1,151 @@
-09.28 4:12 PM
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Hackathon — Train & Detect (Criminal / Employee)</title>
-  <style>
-    :root{--accent:#0ea5a4;--bg:#0f172a;--card:#0b1220;color:#e6eef6}
-    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#071026,#0b1220);color:var(--card)}
-    .wrap{max-width:1100px;margin:20px auto;padding:18px}
-    h1{color:var(--accent);margin:6px 0 18px}
-    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
-    .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
-    label{display:block;font-size:13px;margin:8px 0 6px}
-    input[type="text"],input[type="file"],button,select{width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--card)}
-    button{cursor:pointer;margin-top:8px;background:var(--accent);border:none;color:#042226;font-weight:600}
-    .small{font-size:12px;color:#99a1b5}
-    #video{width:100%;border-radius:8px;background:#222;height:360px;object-fit:cover}
-    .preview-list img{width:64px;height:64px;object-fit:cover;border-radius:6px;margin:6px}
-    .toggles{display:flex;gap:8px;margin-top:6px}
-    .log{height:320px;overflow:auto;background:#061019;padding:10px;border-radius:8px;font-family:monospace;font-size:13px}
-    .status{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .chip{background:#06222a;padding:6px 8px;border-radius:999px;font-size:13px;color:#91f0e6}
-    .row{display:flex;gap:8px;align-items:center}
-    footer{margin-top:18px;color:#7c8aa1;font-size:13px;text-align:center}
-    .muted{color:#91a1b8;font-size:13px}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Criminal & Employee Detection</title>
+<style>
+  body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
+  button { margin: 5px; padding: 10px 20px; }
+  video { border: 2px solid #0ea5a4; border-radius: 8px; margin-top: 10px; }
+  #log { background:#222; padding:10px; margin-top:10px; height:200px; overflow:auto; text-align:left; font-family:monospace; }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Train & Detect — Hackathon</h1>
-    <div class="grid">
-      <div class="card">
-        <div id="mode-area">
-          <div class="row" style="justify-content:space-between;align-items:center">
-            <div>
-              <button id="btn-train">Train</button>
-              <button id="btn-detect">Detect (Live)</button>
-            </div>
-            <div class="small muted">Models will be downloaded once on first use.</div>
-          </div>
 
-          <hr style="margin:12px 0;border:none;height:1px;background:rgba(255,255,255,0.03)">
+<h1>Criminal / Employee Detection</h1>
+<button id="trainBtn">Train</button>
+<button id="detectBtn">Detect</button>
 
-          <!-- TRAIN UI -->
-          <div id="train-ui">
-            <label>Upload Criminal Photos (choose a label/name and multiple photos)</label>
-            <input id="criminal-label" type="text" placeholder="e.g. John Doe / Gang A (required)"/>
-            <input id="criminal-files" type="file" accept="image/*" multiple />
-            <button id="criminal-upload">Upload Criminals</button>
-            <div class="small">Uploaded criminal faces stored in browser (localStorage). You can train many labels.</div>
-
-            <hr style="margin:12px 0;border:none;height:1px;background:rgba(255,255,255,0.03)">
-
-            <label>Upload Employee Photos (choose a label/name and multiple photos)</label>
-            <input id="employee-label" type="text" placeholder="e.g. Alice / EmpID123 (required)"/>
-            <input id="employee-files" type="file" accept="image/*" multiple />
-            <button id="employee-upload">Upload Employees</button>
-            <div class="small">Employee faces stored in browser (localStorage).</div>
-
-            <hr style="margin:12px 0;border:none;height:1px;background:rgba(255,255,255,0.03)">
-
-            <div style="display:flex;gap:8px;align-items:center">
-              <label style="margin:0">Siren (custom mp3):</label>
-              <input id="siren-file" type="file" accept="audio/*" />
-            </div>
-            <div class="small">If you don't upload an audio file, detection will still log events but won't play sound.</div>
-
-            <hr style="margin:12px 0;border:none;height:1px;background:rgba(255,255,255,0.03)">
-
-            <div class="status">
-              <div class="chip" id="criminal-count">Criminal labels: 0</div>
-              <div class="chip" id="employee-count">Employee labels: 0</div>
-            </div>
-
-            <div style="margin-top:12px">
-              <label>Preview uploaded faces (click to expand)</label>
-              <div id="preview" class="preview-list"></div>
-            </div>
-          </div>
-
-          <!-- DETECT UI -->
-          <div id="detect-ui" style="display:none;margin-top:12px">
-            <label>Live Camera</label>
-            <video id="video" autoplay muted></video>
-            <div class="row" style="margin-top:10px">
-              <button id="start-detect">Start Detection</button>
-              <button id="stop-detect">Stop</button>
-              <select id="threshold">
-                <option value="0.45">Strict (0.45)</option>
-                <option value="0.6" selected>Default (0.6)</option>
-                <option value="0.75">Loose (0.75)</option>
-              </select>
-              <div class="small">Distance threshold</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><strong>Logs & Alerts</strong></div>
-          <div class="small muted">Local only — refresh clears live logs</div>
-        </div>
-
-        <div class="log" id="log"></div>
-
-        <hr style="margin:12px 0;border:none;height:1px;background:rgba(255,255,255,0.03)">
-
-        <div>
-          <label>Actions</label>
-          <div class="row">
-            <button id="clear-logs">Clear Logs</button>
-            <button id="reset-storage">Reset Stored Faces</button>
-          </div>
-        </div>
-
-        <hr style="margin:12px 0;border:none;height:1px;background:rgba(255,255,255,0.03)">
-
-        <div>
-          <label>Export / Import (for sharing between browsers)</label>
-          <div style="display:flex;gap:8px">
-            <button id="export-db">Export JSON</button>
-            <input id="import-file" type="file" accept="application/json" />
-            <button id="import-btn">Import</button>
-          </div>
-          <div class="small">Exported JSON contains labeled face descriptors (not images).</div>
-        </div>
-
-        <audio id="siren" controls style="margin-top:12px;width:100%"></audio>
-      </div>
-    </div>
-
-    <footer>
-      Host this single file on GitHub Pages (push to a repo and enable Pages) — the app runs fully in-browser.
-    </footer>
+<div id="trainSection" style="display:none; margin-top:20px;">
+  <h2>Upload Training Images</h2>
+  <div>
+    <h3>Criminals</h3>
+    <input type="text" id="criminalLabel" placeholder="Criminal Name">
+    <input type="file" id="criminalFiles" multiple accept="image/*">
+    <button id="uploadCriminals">Upload Criminals</button>
   </div>
+  <div>
+    <h3>Employees</h3>
+    <input type="text" id="employeeLabel" placeholder="Employee Name">
+    <input type="file" id="employeeFiles" multiple accept="image/*">
+    <button id="uploadEmployees">Upload Employees</button>
+  </div>
+  <div>
+    <h3>Custom Siren</h3>
+    <input type="file" id="sirenFile" accept="audio/*">
+  </div>
+</div>
 
-  <!-- face-api.js from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<div id="detectSection" style="display:none; margin-top:20px;">
+  <h2>Live Detection</h2>
+  <video id="video" width="400" height="300" autoplay muted></video>
+  <div>
+    <button id="startDetect">Start Detection</button>
+    <button id="stopDetect">Stop Detection</button>
+  </div>
+</div>
 
-  <script>
-  /*
-    Single-file client-side app:
-    - Train: compute face descriptors from uploaded images and store labeled descriptors in localStorage
-    - Detect: live camera + face-api face descriptor matching (criminal / employee / unknown)
-    - Plays custom siren audio (user uploads mp3) when matches/unknown occur and logs events
-    Notes:
-      - Models are downloaded from a public CDN on first run; keep an eye on console if models fail to load.
-      - LocalStorage keys used: "faceDB_v1" (object with criminals & employees)
-  */
+<div id="log"></div>
+<audio id="siren" src="" preload="auto"></audio>
 
-  // --------- Utilities ----------
-  const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models/'; // public hosted models
-  const LS_KEY = 'faceDB_v1';
+<script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<script>
+const logEl = document.getElementById('log');
+function log(msg){ logEl.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>` + logEl.innerHTML; }
 
-  const logEl = document.getElementById('log');
-  function log(msg){
-    const t = new Date().toLocaleString();
-    logEl.innerHTML = `<div>[${t}] ${escapeHtml(msg)}</div>` + logEl.innerHTML;
+let db = { criminals: [], employees: [] };
+let modelsLoaded = false;
+let videoStream;
+let interval;
+let faceMatcher;
+let siren = document.getElementById('siren');
+
+async function loadModels() {
+  if(modelsLoaded) return;
+  log("Loading face-api models...");
+  await faceapi.nets.ssdMobilenetv1.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  modelsLoaded = true;
+  log("Models loaded.");
+}
+
+// Train upload handlers
+async function processFiles(files, label, type){
+  await loadModels();
+  for(const f of files){
+    const img = await fileToImage(f);
+    const desc = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+    if(!desc) { log(`No face detected in ${f.name}`); continue; }
+    if(!db[type][label]) db[type][label] = [];
+    db[type][label].push(Array.from(desc.descriptor));
+    log(`Processed ${f.name} as ${label}`);
   }
-  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+}
 
-  function saveDB(db){
-    localStorage.setItem(LS_KEY, JSON.stringify(db));
-    updateCountsAndPreview();
-  }
-  function loadDB(){
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return {criminals:[], employees:[]};
-    try { return JSON.parse(raw); } catch(e){ return {criminals:[], employees:[]}; }
-  }
-
-  function float32ToArray(f32){
-    return Array.from(f32);
-  }
-  function arrayToFloat32(arr){
-    return new Float32Array(arr);
-  }
-
-  // update counters & preview images
-  function updateCountsAndPreview(){
-    const db = loadDB();
-    document.getElementById('criminal-count').textContent = `Criminal labels: ${db.criminals.length}`;
-    document.getElementById('employee-count').textContent = `Employee labels: ${db.employees.length}`;
-
-    const preview = document.getElementById('preview');
-    preview.innerHTML = '';
-    const addGroup = (list, kind) => {
-      list.forEach(labelObj => {
-        const div = document.createElement('div');
-        div.style.marginBottom = '8px';
-        div.innerHTML = `<div class="small">${escapeHtml(kind)}: <strong>${escapeHtml(labelObj.label)}</strong> — images: ${labelObj.imgCount || labelObj.descriptors.length}</div>`;
-        preview.appendChild(div);
-      });
-    };
-    addGroup(db.criminals, 'Criminal');
-    addGroup(db.employees, 'Employee');
-  }
-
-  // --------- Model loading & helpers ----------
-  let modelsLoaded = false;
-  async function ensureModels(){
-    if (modelsLoaded) return;
-    log('Loading face-api models (first time may take a few seconds)...');
-    await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-    ]);
-    modelsLoaded = true;
-    log('Models loaded.');
-  }
-
-  async function descriptorFromImageElement(imgEl){
-    // detect single face and return descriptor (Float32Array) or null
-    const det = await faceapi.detectSingleFace(imgEl).withFaceLandmarks().withFaceDescriptor();
-    if (!det) return null;
-    return det.descriptor;
-  }
-
-  // --------- Train handlers ----------
-  document.getElementById('criminal-upload').addEventListener('click', async ()=>{
-    const label = document.getElementById('criminal-label').value.trim();
-    const files = document.getElementById('criminal-files').files;
-    if (!label || files.length===0){
-      log('Provide a label and at least one image for criminals.');
-      return;
-    }
-    await ensureModels();
-    await processUploads(files, label, 'criminals');
+function fileToImage(file){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    img.onload = ()=>res(img);
+    img.onerror = e=>rej(e);
+    const reader = new FileReader();
+    reader.onload = e=> img.src = e.target.result;
+    reader.readAsDataURL(file);
   });
+}
 
-  document.getElementById('employee-upload').addEventListener('click', async ()=>{
-    const label = document.getElementById('employee-label').value.trim();
-    const files = document.getElementById('employee-files').files;
-    if (!label || files.length===0){
-      log('Provide a label and at least one image for employees.');
-      return;
-    }
-    await ensureModels();
-    await processUploads(files, label, 'employees');
-  });
+// Detect
+async function startDetection(){
+  await loadModels();
+  const labeledDescriptors = [];
+  for(const [label, arrs] of Object.entries(db.criminals)) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('CRIMINAL::'+label, arrs.map(a=>new Float32Array(a))));
+  for(const [label, arrs] of Object.entries(db.employees)) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('EMPLOYEE::'+label, arrs.map(a=>new Float32Array(a))));
+  faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
 
-  async function processUploads(fileList, label, targetKey){
-    const db = loadDB();
-    const labelsArray = targetKey === 'criminals' ? db.criminals : db.employees;
+  videoStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+  const video = document.getElementById('video');
+  video.srcObject = videoStream;
 
-    // try to find existing label entry
-    let entry = labelsArray.find(e => e.label === label);
-    if (!entry){
-      entry = {label: label, descriptors: [], imgCount: 0};
-      labelsArray.push(entry);
-    }
-
-    for (const f of fileList){
-      try {
-        const img = await fileToImage(f);
-        const desc = await descriptorFromImageElement(img);
-        if (!desc){
-          log(`No face detected in ${f.name} — skipped.`);
-          continue;
-        }
-        entry.descriptors.push(float32ToArray(desc));
-        entry.imgCount = (entry.imgCount || 0) + 1;
-        log(`Processed "${f.name}" for label "${label}"`);
-      } catch(err){
-        console.error(err);
-        log(`Error processing ${f.name}: ${err.message || err}`);
+  interval = setInterval(async ()=>{
+    const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+    for(const d of detections){
+      const best = faceMatcher.findBestMatch(d.descriptor);
+      if(best.label.startsWith('CRIMINAL::')){
+        log(`CRIMINAL detected: ${best.label.replace('CRIMINAL::','')}`);
+        siren.play();
+      }else if(best.label.startsWith('EMPLOYEE::')){
+        log(`EMPLOYEE detected: ${best.label.replace('EMPLOYEE::','')}`);
+        siren.play();
+      }else{
+        log(`UNKNOWN detected`);
+        siren.play();
       }
     }
+  }, 1000);
+}
 
-    saveDB(db);
-    log(`Saved ${fileList.length} file(s) under "${label}" to ${targetKey}.`);
-  }
+function stopDetection(){
+  clearInterval(interval);
+  if(videoStream) videoStream.getTracks().forEach(t=>t.stop());
+  log("Detection stopped.");
+}
 
-  function fileToImage(file){
-    return new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => res(img);
-      img.onerror = e => rej(e);
-      const reader = new FileReader();
-      reader.onload = e => { img.src = e.target.result; };
-      reader.onerror = e => rej(e);
-      reader.readAsDataURL(file);
-    });
-  }
+// Mode buttons
+document.getElementById('trainBtn').onclick = ()=>{ document.getElementById('trainSection').style.display='block'; document.getElementById('detectSection').style.display='none'; }
+document.getElementById('detectBtn').onclick = ()=>{ document.getElementById('trainSection').style.display='none'; document.getElementById('detectSection').style.display='block'; }
 
-  // --------- Detection ----------
-  let videoStream = null;
-  let detectInterval = null;
-  let faceMatcher = null;
-  let currentThreshold = parseFloat(document.getElementById('threshold').value);
+// Upload buttons
+document.getElementById('uploadCriminals').onclick = ()=>processFiles(document.getElementById('criminalFiles').files, document.getElementById('criminalLabel').value, 'criminals');
+document.getElementById('uploadEmployees').onclick = ()=>processFiles(document.getElementById('employeeFiles').files, document.getElementById('employeeLabel').value, 'employees');
 
-  document.getElementById('threshold').addEventListener('change', (e)=>{
-    currentThreshold = parseFloat(e.target.value);
-    if (faceMatcher) faceMatcher.distanceThreshold = currentThreshold;
-  });
+// Siren
+document.getElementById('sirenFile').onchange = e=>siren.src = URL.createObjectURL(e.target.files[0]);
 
-  document.getElementById('start-detect').addEventListener('click', async ()=>{
-    await ensureModels(
+// Start/Stop detection
+document.getElementById('startDetect').onclick = startDetection;
+document.getElementById('stopDetect').onclick = stopDetection;
+
+</script>
+</body>
+</html>
