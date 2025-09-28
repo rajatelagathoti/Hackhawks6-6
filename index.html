@@ -1,0 +1,95 @@
+09.28 2:01 PM
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Detection Page</title>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<script defer src="scripts.js"></script>
+<style>
+body { font-family: Arial; text-align:center; background:#f0f0f0; }
+h2 { margin-top:10px; }
+video, canvas { width: 95%; max-width:650px; margin-top:10px; border-radius:12px; }
+#log { margin-top:15px; padding:10px; background:white; max-height:250px; overflow-y:auto; border-radius:10px; font-size:18px; text-align:left; }
+</style>
+</head>
+<body>
+<h2>Face Detection</h2>
+<video id="video" autoplay muted></video>
+<canvas id="overlay"></canvas>
+<div id="log"></div>
+
+<audio id="criminalSound" src="sounds/criminal.mp3"></audio>
+<audio id="employeeSound" src="sounds/employee.mp3"></audio>
+<audio id="unknownSound" src="sounds/unknown.mp3"></audio>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const logDiv = document.getElementById('log');
+const criminalSound = document.getElementById('criminalSound');
+const employeeSound = document.getElementById('employeeSound');
+const unknownSound = document.getElementById('unknownSound');
+
+let labeledDescriptors = [];
+const detectionOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+
+function log(msg, type){
+  const div = document.createElement('div');
+  div.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
+  div.style.color = type==='criminal'?'red':type==='employee'?'green':'blue';
+  logDiv.prepend(div);
+}
+
+async function loadModels(){
+  await faceapi.nets.ssdMobilenetv1.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+}
+
+async function start(){
+  await loadModels();
+  log('Models Loaded ✅');
+
+  // Load trained descriptors from localStorage
+  const saved = JSON.parse(localStorage.getItem('labeledDescriptors') || '[]');
+  labeledDescriptors = saved.map(item => new faceapi.LabeledFaceDescriptors(item.label, item.descriptors.map(d=>new Float32Array(Object.values(d)))));
+  const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+
+  // Camera
+  const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  video.srcObject = stream;
+
+  video.addEventListener('play', ()=>{
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    faceapi.matchDimensions(canvas, {width:canvas.width, height:canvas.height});
+
+    setInterval(async ()=>{
+      const detections = await faceapi.detectAllFaces(video, detectionOptions).withFaceLandmarks().withFaceDescriptors();
+      const resized = faceapi.resizeResults(detections, {width:canvas.width, height:canvas.height});
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      faceapi.draw.drawDetections(canvas, resized);
+
+      resized.forEach(d=>{
+        const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+        if(bestMatch.label==='criminal'){
+          criminalSound.play();
+          log('Criminal detected: dongochhaadu dongochhaadu','criminal');
+        }else if(bestMatch.label==='employee'){
+          employeeSound.play();
+          log('Employee detected: annochhaadu','employee');
+        }else{
+          unknownSound.play();
+          log('Unknown person: evadu mummy veedu','unknown');
+        }
+      });
+    },1000);
+  });
+}
+
+start();
+</script>
+</body>
+</html>
