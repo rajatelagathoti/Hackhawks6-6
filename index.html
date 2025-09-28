@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Criminal & Employee Detection</title>
+<title>Criminal / Employee Detection</title>
 <style>
   body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
-  button { margin: 5px; padding: 10px 20px; }
+  button { margin: 5px; padding: 10px 20px; cursor: pointer; }
   video { border: 2px solid #0ea5a4; border-radius: 8px; margin-top: 10px; }
   #log { background:#222; padding:10px; margin-top:10px; height:200px; overflow:auto; text-align:left; font-family:monospace; }
 </style>
@@ -18,16 +18,14 @@
 <button id="detectBtn">Detect</button>
 
 <div id="trainSection" style="display:none; margin-top:20px;">
-  <h2>Upload Training Images</h2>
+  <h2>Upload Photos</h2>
   <div>
-    <h3>Criminals</h3>
-    <input type="text" id="criminalLabel" placeholder="Criminal Name">
+    <h3>Criminal Photos</h3>
     <input type="file" id="criminalFiles" multiple accept="image/*">
     <button id="uploadCriminals">Upload Criminals</button>
   </div>
   <div>
-    <h3>Employees</h3>
-    <input type="text" id="employeeLabel" placeholder="Employee Name">
+    <h3>Employee Photos</h3>
     <input type="file" id="employeeFiles" multiple accept="image/*">
     <button id="uploadEmployees">Upload Employees</button>
   </div>
@@ -40,10 +38,6 @@
 <div id="detectSection" style="display:none; margin-top:20px;">
   <h2>Live Detection</h2>
   <video id="video" width="400" height="300" autoplay muted></video>
-  <div>
-    <button id="startDetect">Start Detection</button>
-    <button id="stopDetect">Stop Detection</button>
-  </div>
 </div>
 
 <div id="log"></div>
@@ -71,19 +65,6 @@ async function loadModels() {
   log("Models loaded.");
 }
 
-// Train upload handlers
-async function processFiles(files, label, type){
-  await loadModels();
-  for(const f of files){
-    const img = await fileToImage(f);
-    const desc = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-    if(!desc) { log(`No face detected in ${f.name}`); continue; }
-    if(!db[type][label]) db[type][label] = [];
-    db[type][label].push(Array.from(desc.descriptor));
-    log(`Processed ${f.name} as ${label}`);
-  }
-}
-
 function fileToImage(file){
   return new Promise((res, rej)=>{
     const img = new Image();
@@ -95,34 +76,55 @@ function fileToImage(file){
   });
 }
 
-// Detect
+async function processFiles(files, type){
+  await loadModels();
+  for(const f of files){
+    const img = await fileToImage(f);
+    const det = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+    if(!det) { log(`No face detected in ${f.name}`); continue; }
+    db[type].push(Array.from(det.descriptor));
+    log(`Processed ${f.name} as ${type}`);
+  }
+}
+
+// Auto start detection when Detect is clicked
 async function startDetection(){
   await loadModels();
+  if(db.criminals.length===0 && db.employees.length===0){
+    log("Upload some photos first!");
+    return;
+  }
+
   const labeledDescriptors = [];
-  for(const [label, arrs] of Object.entries(db.criminals)) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('CRIMINAL::'+label, arrs.map(a=>new Float32Array(a))));
-  for(const [label, arrs] of Object.entries(db.employees)) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('EMPLOYEE::'+label, arrs.map(a=>new Float32Array(a))));
+  if(db.criminals.length>0) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('CRIMINAL', db.criminals.map(a=>new Float32Array(a))));
+  if(db.employees.length>0) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('EMPLOYEE', db.employees.map(a=>new Float32Array(a))));
   faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
 
-  videoStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
-  const video = document.getElementById('video');
-  video.srcObject = videoStream;
+  try {
+    const video = document.getElementById('video');
+    videoStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+    video.srcObject = videoStream;
 
-  interval = setInterval(async ()=>{
-    const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-    for(const d of detections){
-      const best = faceMatcher.findBestMatch(d.descriptor);
-      if(best.label.startsWith('CRIMINAL::')){
-        log(`CRIMINAL detected: ${best.label.replace('CRIMINAL::','')}`);
-        siren.play();
-      }else if(best.label.startsWith('EMPLOYEE::')){
-        log(`EMPLOYEE detected: ${best.label.replace('EMPLOYEE::','')}`);
-        siren.play();
-      }else{
-        log(`UNKNOWN detected`);
-        siren.play();
+    interval = setInterval(async ()=>{
+      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+      for(const d of detections){
+        const best = faceMatcher.findBestMatch(d.descriptor);
+        if(best.label==='CRIMINAL'){
+          log("CRIMINAL detected!");
+          if(siren.src) siren.play();
+        } else if(best.label==='EMPLOYEE'){
+          log("EMPLOYEE detected!");
+          if(siren.src) siren.play();
+        } else{
+          log("UNKNOWN detected!");
+          if(siren.src) siren.play();
+        }
       }
-    }
-  }, 1000);
+    }, 1000);
+    log("Detection started automatically.");
+  } catch(err){
+    log("Error accessing camera: "+err.message);
+  }
 }
 
 function stopDetection(){
@@ -132,19 +134,23 @@ function stopDetection(){
 }
 
 // Mode buttons
-document.getElementById('trainBtn').onclick = ()=>{ document.getElementById('trainSection').style.display='block'; document.getElementById('detectSection').style.display='none'; }
-document.getElementById('detectBtn').onclick = ()=>{ document.getElementById('trainSection').style.display='none'; document.getElementById('detectSection').style.display='block'; }
+document.getElementById('trainBtn').onclick = ()=>{ 
+  document.getElementById('trainSection').style.display='block'; 
+  document.getElementById('detectSection').style.display='none'; 
+  stopDetection();
+}
+document.getElementById('detectBtn').onclick = ()=>{ 
+  document.getElementById('trainSection').style.display='none'; 
+  document.getElementById('detectSection').style.display='block'; 
+  startDetection();
+}
 
 // Upload buttons
-document.getElementById('uploadCriminals').onclick = ()=>processFiles(document.getElementById('criminalFiles').files, document.getElementById('criminalLabel').value, 'criminals');
-document.getElementById('uploadEmployees').onclick = ()=>processFiles(document.getElementById('employeeFiles').files, document.getElementById('employeeLabel').value, 'employees');
+document.getElementById('uploadCriminals').onclick = ()=>processFiles(document.getElementById('criminalFiles').files, 'criminals');
+document.getElementById('uploadEmployees').onclick = ()=>processFiles(document.getElementById('employeeFiles').files, 'employees');
 
 // Siren
 document.getElementById('sirenFile').onchange = e=>siren.src = URL.createObjectURL(e.target.files[0]);
-
-// Start/Stop detection
-document.getElementById('startDetect').onclick = startDetection;
-document.getElementById('stopDetect').onclick = stopDetection;
 
 </script>
 </body>
