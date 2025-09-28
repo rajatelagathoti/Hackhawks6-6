@@ -43,7 +43,8 @@
 <div id="log"></div>
 <audio id="siren" src="" preload="auto"></audio>
 
-<script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<!-- Use HTTPS for face-api.js -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
 const logEl = document.getElementById('log');
 function log(msg){ logEl.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>` + logEl.innerHTML; }
@@ -124,6 +125,7 @@ async function startDetection(){
     log("Detection started automatically.");
   } catch(err){
     log("Error accessing camera: "+err.message);
+    alert("Camera error: " + err.message);
   }
 }
 
