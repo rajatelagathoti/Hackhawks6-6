@@ -6,8 +6,8 @@
 <title>Criminal / Employee Detection</title>
 <style>
   body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
-  button { margin: 5px; padding: 10px 20px; cursor: pointer; }
-  video { border: 2px solid #0ea5a4; border-radius: 8px; margin-top: 10px; }
+  button, select { margin: 5px; padding: 10px 20px; cursor: pointer; }
+  video { border: 2px solid #0ea5a4; border-radius: 8px; margin-top: 10px; transform: scaleX(1); }
   #log { background:#222; padding:10px; margin-top:10px; height:200px; overflow:auto; text-align:left; font-family:monospace; }
 </style>
 </head>
@@ -18,32 +18,36 @@
 <button id="detectBtn">Detect</button>
 
 <div id="trainSection" style="display:none; margin-top:20px;">
-  <h2>Upload Photos</h2>
+  <h2>Upload Photos & Sirens</h2>
   <div>
     <h3>Criminal Photos</h3>
     <input type="file" id="criminalFiles" multiple accept="image/*">
     <button id="uploadCriminals">Upload Criminals</button>
+    <br>
+    <h4>Upload Criminal Siren</h4>
+    <input type="file" id="sirenCriminal" accept="audio/*">
   </div>
   <div>
     <h3>Employee Photos</h3>
     <input type="file" id="employeeFiles" multiple accept="image/*">
     <button id="uploadEmployees">Upload Employees</button>
-  </div>
-  <div>
-    <h3>Custom Siren</h3>
-    <input type="file" id="sirenFile" accept="audio/*">
+    <br>
+    <h4>Upload Employee Siren</h4>
+    <input type="file" id="sirenEmployee" accept="audio/*">
   </div>
 </div>
 
 <div id="detectSection" style="display:none; margin-top:20px;">
   <h2>Live Detection</h2>
+  <button id="switchCameraBtn">Switch Camera</button>
   <video id="video" width="400" height="300" autoplay muted></video>
 </div>
 
 <div id="log"></div>
-<audio id="siren" src="" preload="auto"></audio>
+<audio id="sirenCr" src="" preload="auto"></audio>
+<audio id="sirenEmp" src="" preload="auto"></audio>
+<audio id="sirenUnknown" src="" preload="auto"></audio>
 
-<!-- Use HTTPS for face-api.js -->
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
 const logEl = document.getElementById('log');
@@ -54,7 +58,12 @@ let modelsLoaded = false;
 let videoStream;
 let interval;
 let faceMatcher;
-let siren = document.getElementById('siren');
+let currentCamera = 'user'; // default front camera
+let devices = [];
+
+const sirenCr = document.getElementById('sirenCr');
+const sirenEmp = document.getElementById('sirenEmp');
+const sirenUnknown = document.getElementById('sirenUnknown');
 
 async function loadModels() {
   if(modelsLoaded) return;
@@ -88,6 +97,14 @@ async function processFiles(files, type){
   }
 }
 
+// Switch camera
+async function switchCamera() {
+  currentCamera = (currentCamera === 'user') ? 'environment' : 'user';
+  log(`Switching camera to: ${currentCamera}`);
+  if(videoStream) videoStream.getTracks().forEach(t => t.stop());
+  startDetection();
+}
+
 // Auto start detection when Detect is clicked
 async function startDetection(){
   await loadModels();
@@ -103,8 +120,12 @@ async function startDetection(){
 
   try {
     const video = document.getElementById('video');
-    videoStream = await navigator.mediaDevices.getUserMedia({video:true, audio:false});
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentCamera }, audio: false });
     video.srcObject = videoStream;
+
+    // Mirror front camera
+    if(currentCamera==='user') video.style.transform='scaleX(-1)';
+    else video.style.transform='scaleX(1)';
 
     interval = setInterval(async ()=>{
       const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
@@ -112,13 +133,13 @@ async function startDetection(){
         const best = faceMatcher.findBestMatch(d.descriptor);
         if(best.label==='CRIMINAL'){
           log("CRIMINAL detected!");
-          if(siren.src) siren.play();
+          if(sirenCr.src) sirenCr.play();
         } else if(best.label==='EMPLOYEE'){
           log("EMPLOYEE detected!");
-          if(siren.src) siren.play();
+          if(sirenEmp.src) sirenEmp.play();
         } else{
           log("UNKNOWN detected!");
-          if(siren.src) siren.play();
+          if(sirenUnknown.src) sirenUnknown.play();
         }
       }
     }, 1000);
@@ -151,8 +172,12 @@ document.getElementById('detectBtn').onclick = ()=>{
 document.getElementById('uploadCriminals').onclick = ()=>processFiles(document.getElementById('criminalFiles').files, 'criminals');
 document.getElementById('uploadEmployees').onclick = ()=>processFiles(document.getElementById('employeeFiles').files, 'employees');
 
-// Siren
-document.getElementById('sirenFile').onchange = e=>siren.src = URL.createObjectURL(e.target.files[0]);
+// Sirens
+document.getElementById('sirenCriminal').onchange = e=>sirenCr.src = URL.createObjectURL(e.target.files[0]);
+document.getElementById('sirenEmployee').onchange = e=>sirenEmp.src = URL.createObjectURL(e.target.files[0]);
+
+// Camera switch
+document.getElementById('switchCameraBtn').onclick = switchCamera;
 
 </script>
 </body>
