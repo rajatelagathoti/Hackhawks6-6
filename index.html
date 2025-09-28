@@ -1,0 +1,116 @@
+09.28 11:41 AM
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Person & Vehicle Detector</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f0f0; text-align: center; }
+    h2 { margin-top: 10px; }
+    video, canvas { width: 95%; max-width: 650px; margin-top: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    #log { margin-top: 15px; padding: 10px; background: white; max-height: 250px; overflow-y: auto; border-radius: 10px; font-size: 18px; text-align: left; }
+    .event { margin: 4px 0; }
+  </style>
+</head>
+<body>
+<h2>AI Person & Vehicle Detector</h2>
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+<div id="log"></div>
+
+<audio id="personSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+<audio id="vehicleSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const log = document.getElementById('log');
+const personSound = document.getElementById('personSound');
+const vehicleSound = document.getElementById('vehicleSound');
+
+const vehicleClasses = ["car", "truck", "bus", "motorcycle"];
+
+async function setupCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+  video.srcObject = stream;
+  return new Promise(resolve => video.onloadedmetadata = () => resolve(video));
+}
+
+// Get dominant color inside bounding box
+function getDominantColor(imageData) {
+  const data = imageData.data;
+  let r=0,g=0,b=0,count=0;
+  for(let i=0; i<data.length; i+=4){
+    r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++;
+  }
+  return `rgb(${Math.round(r/count)},${Math.round(g/count)},${Math.round(b/count)})`;
+}
+
+function logEvent(text, type){
+  const div = document.createElement("div");
+  div.className = "event";
+  div.style.color = type === "person" ? "green" : "blue";
+  div.textContent = `${new Date().toLocaleTimeString()} - ${text}`;
+  log.prepend(div);
+}
+
+async function main(){
+  await setupCamera();
+  video.play();
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const model = await cocoSsd.load();
+  logEvent("Model loaded ✅", "info");
+
+  detectFrame(model);
+}
+
+function detectFrame(model){
+  model.detect(video).then(predictions => {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+    predictions.forEach(p => {
+      const [x,y,w,h] = p.bbox;
+      if(p.class === "person"){
+        // draw box
+        ctx.strokeStyle = "green"; ctx.lineWidth=3;
+        ctx.strokeRect(x,y,w,h);
+        ctx.fillStyle = "green"; ctx.font = "20px Arial";
+        ctx.fillText(`Person (${(p.score*100).toFixed(0)}%)`, x, y>20? y-5:y+20);
+        if(p.score > 0.6){
+          personSound.play();
+          logEvent("Person detected", "person");
+        }
+      } else if(vehicleClasses.includes(p.class)){
+        // draw box
+        ctx.strokeStyle = "blue"; ctx.lineWidth=3;
+        ctx.strokeRect(x,y,w,h);
+        ctx.fillStyle = "blue"; ctx.font = "20px Arial";
+        ctx.fillText(`${p.class} (${(p.score*100).toFixed(0)}%)`, x, y>20? y-5:y+20);
+
+        if(p.score > 0.6){
+          // get vehicle color
+          const tempCanvas = document.createElement("canvas");
+          tempCanvas.width = w; tempCanvas.height = h;
+          const tctx = tempCanvas.getContext("2d");
+          tctx.drawImage(video, x, y, w, h, 0, 0, w, h);
+          const color = getDominantColor(tctx.getImageData(0,0,w,h));
+          vehicleSound.play();
+          logEvent(`${p.class} detected – color: ${color}`, "vehicle");
+        }
+      }
+    });
+
+    requestAnimationFrame(()=>detectFrame(model));
+  });
+}
+
+main();
+</script>
+</body>
+</html>
