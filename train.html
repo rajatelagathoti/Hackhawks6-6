@@ -1,0 +1,74 @@
+09.28 2:00 PM
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Training Page</title>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<script defer src="scripts.js"></script>
+<style>
+body { font-family: Arial; text-align:center; background:#f0f0f0; }
+h2 { margin-top:10px; }
+input, select, button { margin:5px; font-size:16px; }
+#log { margin-top:15px; padding:10px; background:white; max-height:250px; overflow-y:auto; border-radius:10px; font-size:16px; text-align:left; }
+</style>
+</head>
+<body>
+<h2>Train Model</h2>
+
+<select id="personType">
+  <option value="criminal">Criminal</option>
+  <option value="employee">Employee</option>
+</select>
+<br>
+<input type="file" id="images" multiple accept="image/*">
+<br>
+<button id="trainBtn">Train</button>
+
+<div id="log"></div>
+
+<script>
+const logDiv = document.getElementById('log');
+const trainBtn = document.getElementById('trainBtn');
+const personTypeSelect = document.getElementById('personType');
+
+let labeledDescriptors = JSON.parse(localStorage.getItem('labeledDescriptors') || '[]');
+
+function log(msg){ 
+  const div = document.createElement('div'); 
+  div.textContent = `${new Date().toLocaleTimeString()} - ${msg}`; 
+  logDiv.prepend(div); 
+}
+
+async function loadModels(){
+  await faceapi.nets.ssdMobilenetv1.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
+  log('Models Loaded ✅');
+}
+
+trainBtn.addEventListener('click', async ()=>{
+  const files = document.getElementById('images').files;
+  const type = personTypeSelect.value;
+  if(files.length===0){ log('Please select images'); return; }
+
+  const descriptors = [];
+  for(let i=0;i<files.length;i++){
+    const img = await faceapi.bufferToImage(files[i]);
+    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+    if(detection) descriptors.push(detection.descriptor);
+  }
+
+  if(descriptors.length>0){
+    labeledDescriptors.push({label:type, descriptors});
+    localStorage.setItem('labeledDescriptors', JSON.stringify(labeledDescriptors));
+    log(`${descriptors.length} images trained for ${type}`);
+  }else{
+    log('No face detected in images');
+  }
+});
+
+loadModels();
+</script>
+</body>
+</html>
