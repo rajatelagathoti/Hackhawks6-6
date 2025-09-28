@@ -1,0 +1,105 @@
+09.28 1:11 PM
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Face Recognition Alert System</title>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<style>
+  body { font-family: Arial; text-align:center; background:#f0f0f0; }
+  h2 { margin-top:10px; }
+  video, canvas { width: 95%; max-width: 650px; margin-top:10px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.3); }
+  #log { margin-top:15px; padding:10px; background:white; max-height:250px; overflow-y:auto; border-radius:10px; font-size:18px; text-align:left; }
+  .event { margin:4px 0; }
+</style>
+</head>
+<body>
+<h2>Face Recognition Alert System</h2>
+<video id="video" autoplay muted></video>
+<canvas id="overlay"></canvas>
+<div id="log"></div>
+
+<audio id="criminalSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+<audio id="employeeSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+<audio id="unknownSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"></audio>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const log = document.getElementById('log');
+const criminalSound = document.getElementById('criminalSound');
+const employeeSound = document.getElementById('employeeSound');
+const unknownSound = document.getElementById('unknownSound');
+
+let labeledDescriptors = [];
+const detectionOptions = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+
+async function loadLabeledImages() {
+  const labels = ['criminal', 'employee']; // folder names
+  return Promise.all(
+    labels.map(async label => {
+      const descriptions = [];
+      // change 1 to number of sample images per label
+      for (let i=1; i<=1; i++){
+        const img = await faceapi.fetchImage(`images/${label}${i}.jpg`);
+        const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+        if(detections) descriptions.push(detections.descriptor);
+      }
+      return new faceapi.LabeledFaceDescriptors(label, descriptions);
+    })
+  );
+}
+
+function logEvent(text, type){
+  const div = document.createElement('div');
+  div.className = "event";
+  div.style.color = type==='criminal'?'red': type==='employee'?'green':'blue';
+  div.textContent = `${new Date().toLocaleTimeString()} - ${text}`;
+  log.prepend(div);
+}
+
+async function start() {
+  await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
+  await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+  await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+
+  labeledDescriptors = await loadLabeledImages();
+  const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+
+  const stream = await navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }});
+  video.srcObject = stream;
+
+  video.addEventListener('play', () => {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const displaySize = { width: video.videoWidth, height: video.videoHeight };
+    faceapi.matchDimensions(canvas, displaySize);
+
+    setInterval(async () => {
+      const detections = await faceapi.detectAllFaces(video, detectionOptions).withFaceLandmarks().withFaceDescriptors();
+      const resizedDetections = faceapi.resizeResults(detections, displaySize);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      faceapi.draw.drawDetections(canvas, resizedDetections);
+
+      resizedDetections.forEach(d => {
+        const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+        if(bestMatch.label==='criminal'){
+          criminalSound.play();
+          logEvent("Criminal detected: dongochhaadu dongochhaadu", 'criminal');
+        } else if(bestMatch.label==='employee'){
+          employeeSound.play();
+          logEvent("Employee detected: annochhaadu", 'employee');
+        } else {
+          unknownSound.play();
+          logEvent("Unknown person detected: evadu mummy veedu", 'unknown');
+        }
+      });
+    }, 1000);
+  });
+}
+
+start();
+</script>
+</body>
+</html>
