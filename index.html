@@ -5,23 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Criminal / Employee Detection</title>
 <style>
-  body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
+  body { font-family: sans-serif; background: #111; color: #eee; text-align: center; margin:0; }
   button, select { margin: 5px; padding: 10px 20px; cursor: pointer; }
   .video-wrapper {
-    width: 100%;
-    max-width: 600px;
+    width: 100%;              /* full width */
+    height: 70vh;             /* takes most of laptop screen height */
     margin: auto;
     position: relative;
     background: black;
-    border: 4px solid green; /* default safe */
-    border-radius: 8px;
+    border: 4px solid green;  /* default safe */
+    border-radius: 0;         /* square edges like your sketch */
     overflow: hidden;
     transition: border-color 0.3s ease;
   }
   video {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* fills box always */
+    object-fit: cover; /* always fills box */
   }
   #log { background:#222; padding:10px; margin-top:10px; height:200px; overflow:auto; text-align:left; font-family:monospace; }
 </style>
