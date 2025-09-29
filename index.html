@@ -26,20 +26,30 @@
       display: none;
       margin-top: 20px;
     }
-    #video {
+    .camera-box {
       width: 100%;
       max-width: 600px;
-      height: 400px;
+      aspect-ratio: 4/3; /* keeps camera box proportional */
+      margin: auto;
+      position: relative;
       background: black;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
       object-fit: cover; /* camera fills box */
     }
     #switchCamera {
-      margin-top: 10px;
-      padding: 8px 15px;
-      font-size: 16px;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 6px 12px;
+      font-size: 14px;
       border: none;
       border-radius: 5px;
-      background: #444;
+      background: rgba(0,0,0,0.6);
       color: white;
       cursor: pointer;
     }
@@ -86,8 +96,10 @@
   <!-- Detect section -->
   <div id="detectSection">
     <h2>Live Camera</h2>
-    <video id="video" autoplay muted playsinline></video><br>
-    <button id="switchCamera">🔄 Switch Camera</button>
+    <div class="camera-box">
+      <video id="video" autoplay muted playsinline></video>
+      <button id="switchCamera">🔄</button>
+    </div>
     <div id="logs"></div>
   </div>
 
