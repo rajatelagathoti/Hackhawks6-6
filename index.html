@@ -1,198 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Criminal / Employee Detection</title>
-<style>
-  body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
-  button, select { margin: 5px; padding: 10px 20px; cursor: pointer; }
-  #cameraBox {
-    width: 100%;
-    max-width: 500px;
-    height: 350px;
-    margin: 10px auto;
-    border: 2px solid #0ea5a4;
-    border-radius: 8px;
-    overflow: hidden;
-    position: relative;
-  }
-  #video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* makes the video fill box fully */
-    transform: scaleX(1);
-  }
-  #log {
-    background:#222; padding:10px; margin-top:10px;
-    height:200px; overflow:auto; text-align:left;
-    font-family:monospace;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Criminal Detection</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+    }
+    .btn {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: white;
+    }
+    #uploadSection, #detectSection {
+      display: none;
+      margin-top: 20px;
+    }
+    #video {
+      width: 100%;
+      max-width: 600px;
+      height: 400px;
+      background: black;
+      object-fit: cover; /* camera fills box */
+    }
+    #switchCamera {
+      margin-top: 10px;
+      padding: 8px 15px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background: #444;
+      color: white;
+      cursor: pointer;
+    }
+    #logs {
+      margin-top: 20px;
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      height: 150px;
+      overflow-y: auto;
+    }
+  </style>
 </head>
 <body>
+  <h1>Criminal Detection System</h1>
+  <button class="btn" onclick="showSection('upload')">Train</button>
+  <button class="btn" onclick="showSection('detect')">Detect</button>
 
-<h1>Criminal / Employee Detection</h1>
-<button id="trainBtn">Train</button>
-<button id="detectBtn">Detect</button>
+  <!-- Upload section -->
+  <div id="uploadSection">
+    <h2>Upload Photos</h2>
+    <p>Upload Criminal Photos:</p>
+    <input type="file" id="criminalUpload" multiple accept="image/*" /><br><br>
+    <p>Upload Employee Photos:</p>
+    <input type="file" id="employeeUpload" multiple accept="image/*" /><br><br>
 
-<div id="trainSection" style="display:none; margin-top:20px;">
-  <h2>Upload Photos & Sirens</h2>
-  <div>
-    <h3>Criminal Photos</h3>
-    <input type="file" id="criminalFiles" multiple accept="image/*">
-    <button id="uploadCriminals">Upload Criminals</button>
-    <br>
-    <h4>Upload Criminal Siren</h4>
-    <input type="file" id="sirenCriminal" accept="audio/*">
+    <h2>Upload Sirens</h2>
+    <p>Criminal Siren:</p>
+    <input type="file" id="criminalSiren" accept="audio/*" /><br><br>
+    <p>Employee Siren:</p>
+    <input type="file" id="employeeSiren" accept="audio/*" /><br><br>
+    <p>Unknown Siren:</p>
+    <input type="file" id="unknownSiren" accept="audio/*" /><br><br>
+
+    <button class="btn" onclick="trainModels()">Train Models</button>
+    <p id="trainStatus"></p>
   </div>
-  <div>
-    <h3>Employee Photos</h3>
-    <input type="file" id="employeeFiles" multiple accept="image/*">
-    <button id="uploadEmployees">Upload Employees</button>
-    <br>
-    <h4>Upload Employee Siren</h4>
-    <input type="file" id="sirenEmployee" accept="audio/*">
+
+  <!-- Detect section -->
+  <div id="detectSection">
+    <h2>Live Camera</h2>
+    <video id="video" autoplay muted playsinline></video><br>
+    <button id="switchCamera">🔄 Switch Camera</button>
+    <div id="logs"></div>
   </div>
-</div>
 
-<div id="detectSection" style="display:none; margin-top:20px;">
-  <h2>Live Detection</h2>
-  <button id="switchCameraBtn">Switch Camera</button>
-  <div id="cameraBox">
-    <video id="video" autoplay muted playsinline></video>
-  </div>
-</div>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+  <script>
+    let criminalImages = [];
+    let employeeImages = [];
+    let labeledFaceDescriptors = [];
+    let faceMatcher;
 
-<div id="log"></div>
-<audio id="sirenCr" src="" preload="auto"></audio>
-<audio id="sirenEmp" src="" preload="auto"></audio>
-<audio id="sirenUnknown" src="" preload="auto"></audio>
+    let criminalSirenSound, employeeSirenSound, unknownSirenSound;
+    let currentFacingMode = "user"; // default to front camera
+    let video = document.getElementById("video");
 
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<script>
-const logEl = document.getElementById('log');
-function log(msg){ logEl.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>` + logEl.innerHTML; }
-
-let db = { criminals: [], employees: [] };
-let modelsLoaded = false;
-let videoStream;
-let interval;
-let faceMatcher;
-let currentCamera = 'user'; // default front camera
-
-const sirenCr = document.getElementById('sirenCr');
-const sirenEmp = document.getElementById('sirenEmp');
-const sirenUnknown = document.getElementById('sirenUnknown');
-
-async function loadModels() {
-  if(modelsLoaded) return;
-  log("Loading face-api models...");
-  await faceapi.nets.ssdMobilenetv1.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
-  await faceapi.nets.faceRecognitionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
-  await faceapi.nets.faceLandmark68Net.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models/');
-  modelsLoaded = true;
-  log("Models loaded.");
-}
-
-function fileToImage(file){
-  return new Promise((res, rej)=>{
-    const img = new Image();
-    img.onload = ()=>res(img);
-    img.onerror = e=>rej(e);
-    const reader = new FileReader();
-    reader.onload = e=> img.src = e.target.result;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function processFiles(files, type){
-  await loadModels();
-  for(const f of files){
-    const img = await fileToImage(f);
-    const det = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-    if(!det) { log(`No face detected in ${f.name}`); continue; }
-    db[type].push(Array.from(det.descriptor));
-    log(`Processed ${f.name} as ${type}`);
-  }
-}
-
-async function switchCamera() {
-  currentCamera = (currentCamera === 'user') ? 'environment' : 'user';
-  log(`Switching camera to: ${currentCamera}`);
-  if(videoStream) videoStream.getTracks().forEach(t => t.stop());
-  startDetection();
-}
-
-async function startDetection(){
-  await loadModels();
-  if(db.criminals.length===0 && db.employees.length===0){
-    log("Upload some photos first!");
-    return;
-  }
-
-  const labeledDescriptors = [];
-  if(db.criminals.length>0) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('CRIMINAL', db.criminals.map(a=>new Float32Array(a))));
-  if(db.employees.length>0) labeledDescriptors.push(new faceapi.LabeledFaceDescriptors('EMPLOYEE', db.employees.map(a=>new Float32Array(a))));
-  faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
-
-  try {
-    const video = document.getElementById('video');
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentCamera }, audio: false });
-    video.srcObject = videoStream;
-
-    // Fix mirror issue
-    if(currentCamera==='user') video.style.transform='scaleX(-1)';
-    else video.style.transform='scaleX(1)';
-
-    interval = setInterval(async ()=>{
-      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-      for(const d of detections){
-        const best = faceMatcher.findBestMatch(d.descriptor);
-        if(best.label==='CRIMINAL'){
-          log("CRIMINAL detected!");
-          if(sirenCr.src) sirenCr.play();
-        } else if(best.label==='EMPLOYEE'){
-          log("EMPLOYEE detected!");
-          if(sirenEmp.src) sirenEmp.play();
-        } else{
-          log("UNKNOWN detected!");
-          if(sirenUnknown.src) sirenUnknown.play();
-        }
+    function showSection(section) {
+      document.getElementById("uploadSection").style.display = "none";
+      document.getElementById("detectSection").style.display = "none";
+      if (section === "upload") {
+        document.getElementById("uploadSection").style.display = "block";
+      } else {
+        document.getElementById("detectSection").style.display = "block";
+        startCamera();
+        runDetection();
       }
-    }, 1000);
-    log("Detection started automatically.");
-  } catch(err){
-    log("Error accessing camera: "+err.message);
-    alert("Camera error: " + err.message);
-  }
-}
+    }
 
-function stopDetection(){
-  clearInterval(interval);
-  if(videoStream) videoStream.getTracks().forEach(t=>t.stop());
-  log("Detection stopped.");
-}
+    // Siren upload
+    document.getElementById("criminalSiren").addEventListener("change", e => {
+      criminalSirenSound = new Audio(URL.createObjectURL(e.target.files[0]));
+    });
+    document.getElementById("employeeSiren").addEventListener("change", e => {
+      employeeSirenSound = new Audio(URL.createObjectURL(e.target.files[0]));
+    });
+    document.getElementById("unknownSiren").addEventListener("change", e => {
+      unknownSirenSound = new Audio(URL.createObjectURL(e.target.files[0]));
+    });
 
-// Buttons
-document.getElementById('trainBtn').onclick = ()=>{ 
-  document.getElementById('trainSection').style.display='block'; 
-  document.getElementById('detectSection').style.display='none'; 
-  stopDetection();
-}
-document.getElementById('detectBtn').onclick = ()=>{ 
-  document.getElementById('trainSection').style.display='none'; 
-  document.getElementById('detectSection').style.display='block'; 
-  startDetection();
-}
+    // Camera start
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacingMode }
+        });
+        video.srcObject = stream;
+      } catch (err) {
+        console.error("Camera error:", err);
+        alert("Camera error: " + err.message);
+      }
+    }
 
-// Uploads
-document.getElementById('uploadCriminals').onclick = ()=>processFiles(document.getElementById('criminalFiles').files, 'criminals');
-document.getElementById('uploadEmployees').onclick = ()=>processFiles(document.getElementById('employeeFiles').files, 'employees');
+    // Camera switch
+    document.getElementById("switchCamera").addEventListener("click", () => {
+      currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+      }
+      startCamera();
+    });
 
-// Sirens
-document.getElementById('sirenCriminal').onchange = e=>sirenCr.src = URL.createObjectURL(e.target.files[0]);
-document.getElementById('sirenEmployee').onchange = e=>sirenEmp.src = URL.createObjectURL(e.target.files[0]);
-</script>
+    // Load models
+    Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js/weights"),
+      faceapi.nets.faceRecognitionNet.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js/weights"),
+      faceapi.nets.faceLandmark68Net.loadFromUri("https://cdn.jsdelivr.net/npm/face-api.js/weights")
+    ]).then(() => console.log("Models loaded"));
+
+    // Train models
+    async function trainModels() {
+      const criminalFiles = document.getElementById("criminalUpload").files;
+      const employeeFiles = document.getElementById("employeeUpload").files;
+      if (criminalFiles.length === 0 && employeeFiles.length === 0) {
+        alert("Please upload some images first!");
+        return;
+      }
+      document.getElementById("trainStatus").innerText = "Training...";
+      labeledFaceDescriptors = [];
+
+      // Criminals
+      if (criminalFiles.length > 0) {
+        let descriptors = [];
+        for (let file of criminalFiles) {
+          const img = await faceapi.bufferToImage(file);
+          const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+          if (detection) descriptors.push(detection.descriptor);
+        }
+        if (descriptors.length) labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors("Criminal", descriptors));
+      }
+
+      // Employees
+      if (employeeFiles.length > 0) {
+        let descriptors = [];
+        for (let file of employeeFiles) {
+          const img = await faceapi.bufferToImage(file);
+          const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+          if (detection) descriptors.push(detection.descriptor);
+        }
+        if (descriptors.length) labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors("Employee", descriptors));
+      }
+
+      if (labeledFaceDescriptors.length > 0) {
+        faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+        document.getElementById("trainStatus").innerText = "Training complete!";
+      } else {
+        document.getElementById("trainStatus").innerText = "No valid faces found!";
+      }
+    }
+
+    // Detection loop
+    async function runDetection() {
+      setInterval(async () => {
+        if (!faceMatcher) return;
+        const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+        if (detections.length > 0) {
+          detections.forEach(detection => {
+            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+            logResult(bestMatch.toString());
+          });
+        }
+      }, 2000);
+    }
+
+    // Logs + sirens
+    function logResult(text) {
+      const logs = document.getElementById("logs");
+      const entry = document.createElement("div");
+      entry.innerText = new Date().toLocaleTimeString() + " - " + text;
+      logs.prepend(entry);
+
+      if (text.includes("Criminal")) {
+        if (criminalSirenSound) criminalSirenSound.play();
+      } else if (text.includes("Employee")) {
+        if (employeeSirenSound) employeeSirenSound.play();
+      } else {
+        if (unknownSirenSound) unknownSirenSound.play();
+      }
+    }
+  </script>
 </body>
-  </html>
+</html>
