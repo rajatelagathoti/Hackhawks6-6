@@ -6,7 +6,7 @@
 <title>Login - Face Detection</title>
 <style>
   body { font-family: sans-serif; background: #111; color: #eee; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;}
-  .login-box { background:#222; padding:30px; border-radius:10px; text-align:center;}
+  .login-box { background:#222; padding:30px; border-radius:10px; text-align:center; width:300px; }
   input { margin:10px 0; padding:10px; width:100%; border-radius:5px; border:none; }
   button { padding:10px 20px; border:none; border-radius:5px; cursor:pointer; background:green; color:white; }
   p { color: #f55; }
@@ -15,13 +15,28 @@
 <body>
 <div class="login-box">
   <h2>Login</h2>
-  <input type="text" id="username" placeholder="Username"><br>
-  <input type="password" id="password" placeholder="Password"><br>
+  <input type="text" id="username" placeholder="Username" autocomplete="off"><br>
+  <input type="password" id="password" placeholder="Password" autocomplete="off"><br>
   <button onclick="login()">Login</button>
   <p id="msg"></p>
 </div>
 
 <script>
+// Clear form if page is loaded from cache
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted || sessionStorage.getItem('loggedIn') !== 'true') {
+        document.getElementById('username').value = '';
+        document.getElementById('password').value = '';
+    }
+});
+
+// Redirect if already logged in
+document.addEventListener('DOMContentLoaded', function() {
+    if(sessionStorage.getItem('loggedIn') === 'true'){
+        window.location.href = 'index.html';
+    }
+});
+
 function login(){
   const user = document.getElementById('username').value;
   const pass = document.getElementById('password').value;
@@ -34,13 +49,6 @@ function login(){
     document.getElementById('msg').innerText = 'Invalid username or password';
   }
 }
-
-// Redirect if already logged in
-document.addEventListener('DOMContentLoaded', function() {
-  if(sessionStorage.getItem('loggedIn') === 'true'){
-    window.location.href = 'index.html';
-  }
-});
 </script>
 </body>
 </html>
