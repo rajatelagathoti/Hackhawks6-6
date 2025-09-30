@@ -26,12 +26,15 @@
   #log { background:#222; padding:10px; margin-top:10px; height:200px; overflow:auto; text-align:left; font-family:monospace; }
 </style>
 </head>
-  <body>
-  <script>
-if(sessionStorage.getItem('loggedIn') !== 'true'){
-  window.location.href = 'login.html';
-}
-  </script>
+<body>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if(sessionStorage.getItem('loggedIn') !== 'true'){
+    window.location.href = 'login.html';
+  }
+});
+</script>
 
 <h1>Criminal / Employee Detection</h1>
 <button id="trainBtn">Train</button>
@@ -77,6 +80,7 @@ if(sessionStorage.getItem('loggedIn') !== 'true'){
 
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
+// --- Your existing detection code starts here ---
 const logEl = document.getElementById('log');
 function log(msg){ logEl.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}<br>` + logEl.innerHTML; }
 
@@ -125,7 +129,6 @@ async function processFiles(files, type){
   }
 }
 
-// Switch camera
 async function switchCamera() {
   currentCamera = (currentCamera === 'user') ? 'environment' : 'user';
   log(`Switching camera to: ${currentCamera}`);
@@ -133,7 +136,6 @@ async function switchCamera() {
   startDetection();
 }
 
-// Start detection
 async function startDetection(){
   await loadModels();
   if(db.criminals.length===0 && db.employees.length===0){
@@ -149,8 +151,6 @@ async function startDetection(){
   try {
     videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentCamera }, audio: false });
     video.srcObject = videoStream;
-
-    // Mirror only for front camera
     video.style.transform = (currentCamera==='user') ? 'scaleX(-1)' : 'scaleX(1)';
 
     interval = setInterval(async ()=>{
@@ -185,7 +185,6 @@ function stopDetection(){
   log("Detection stopped.");
 }
 
-// Mode buttons
 document.getElementById('trainBtn').onclick = ()=>{ 
   document.getElementById('trainSection').style.display='block'; 
   document.getElementById('detectSection').style.display='none'; 
@@ -197,16 +196,13 @@ document.getElementById('detectBtn').onclick = ()=>{
   startDetection();
 }
 
-// Upload buttons
 document.getElementById('uploadCriminals').onclick = ()=>processFiles(document.getElementById('criminalFiles').files, 'criminals');
 document.getElementById('uploadEmployees').onclick = ()=>processFiles(document.getElementById('employeeFiles').files, 'employees');
 
-// Sirens override defaults if uploaded
 document.getElementById('sirenCriminal').onchange = e=>sirenCr.src = URL.createObjectURL(e.target.files[0]);
 document.getElementById('sirenEmployee').onchange = e=>sirenEmp.src = URL.createObjectURL(e.target.files[0]);
 document.getElementById('sirenUnknownUpload').onchange = e=>sirenUnknown.src = URL.createObjectURL(e.target.files[0]);
 
-// Camera switch
 document.getElementById('switchCameraBtn').onclick = switchCamera;
 </script>
 </body>
